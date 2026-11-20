@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>永豐高中 115學年度 桃園客運專車暨延伸線站牌查詢</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --primary: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --primary-border: #bfdbfe;
+      --gps-bg: #ecfdf5;
+      --gps-border: #a7f3d0;
+      --gps-text: #065f46;
+      --text: #111827;
+      --muted: #4b5563;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1040px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.45rem;
+    }
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 160px 1fr 1.4fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 720px) {
+      .controls { grid-template-columns: 1fr; }
+    }
+    select, input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 0.98rem;
+      background: #fff;
+      color: var(--text);
+    }
+    .info-bar {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      align-items: center;
+    }
+    .info-bar strong { color: var(--text); }
+
+    /* Google Maps 內嵌地圖面板 */
+    .map-panel {
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      background: #f8fafc;
+    }
+    .map-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #eef2ff;
+      border-bottom: 1px solid #dbeafe;
+    }
+    .map-active-label {
+      font-weight: 700;
+      color: #1e3a8a;
+      font-size: 0.98rem;
+    }
+    .map-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: 0.12s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-outline {
+      background: #fff;
+      color: var(--primary);
+      border-color: #93c5fd;
+    }
+    .btn-outline:hover { background: #eff6ff; }
+    #gmapFrame {
+      display: block;
+      width: 100%;
+      height: 380px;
+      border: 0;
+      background: #e5e7eb;
+    }
+    .map-caption {
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: #fff;
+      border-top: 1px solid var(--border);
+    }
+
+    /* 路線群組與公車站牌標示 */
+    .route-group {
+      margin-bottom: 26px;
+    }
+    .route-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary-soft);
+      margin-bottom: 12px;
+    }
+    .route-title-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .route-title {
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .route-meta {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .stops-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+      gap: 12px;
+    }
+    .stop-link {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      text-decoration: none;
+      background: var(--primary-soft);
+      border: 1px solid var(--primary-border);
+      color: #1e3a8a;
+      padding: 10px 12px;
+      border-radius: 12px;
+      transition: transform 0.12s ease, background-color 0.12s ease;
+    }
+    .stop-link.has-coords {
+      background: var(--gps-bg);
+      border-color: var(--gps-border);
+      color: var(--gps-text);
+    }
+    .stop-link:hover {
+      background: #dbeafe;
+      transform: translateY(-1px);
+    }
+    .stop-link.has-coords:hover {
+      background: #d1fae5;
+    }
+
+    /* 仿公車站牌標示牌 */
+    .bus-sign {
+      flex: 0 0 auto;
+      width: 34px;
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1.5px solid var(--primary);
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .stop-link.has-coords .bus-sign {
+      border-color: #059669;
+    }
+    .bus-sign-top {
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      line-height: 1.25;
+      padding: 1px 2px;
+    }
+    .stop-link.has-coords .bus-sign-top {
+      background: #059669;
+    }
+    .bus-sign-num {
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 2px 0;
+      color: #111827;
+    }
+
+    .stop-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+    .stop-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .stop-name {
+      font-weight: 700;
+      font-size: 0.96rem;
+      word-break: break-word;
+    }
+    .road-tag {
+      font-size: 0.78rem;
+      color: #374151;
+    }
+    .role-tag {
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      border-radius: 6px;
+      background: rgba(29, 78, 216, 0.12);
+      color: #1e40af;
+      font-weight: 700;
+    }
+    .stop-link.has-coords .role-tag {
+      background: rgba(5, 150, 105, 0.14);
+      color: #065f46;
+    }
+    .empty {
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--muted);
+    }
+    .footer-note {
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>永豐高中 115學年度 桃園客運專車暨延伸線站牌查詢</h1>
+    <p class="subtitle">資料更新日期：115/09/02｜Google Maps 路線串聯預覽＋公車站牌查詢入口</p>
+
+    <div class="controls">
+      <select id="periodFilter">
+        <option value="ALL">全部時段（上／放學）</option>
+        <option value="上學">上學（5條）</option>
+        <option value="放學">放學（7條）</option>
+      </select>
+      <select id="routeFilter">
+        <option value="ALL">全部路線</option>
+      </select>
+      <input id="keywordInput" type="text" placeholder="搜尋站牌名稱、路段或路線（例如：八德、大有、文中、龍壽）" />
+    </div>
+
+    <div class="info-bar" id="summaryBar">
+      <span><strong>上學發車：</strong>各路線依表定時間發車（06:10～06:40）</span>
+      <span><strong>放學發車：</strong>17:00 校內統一出發</span>
+      <span id="coordStats"></span>
+    </div>
+
+    <!-- Google Maps 內嵌路線串聯地圖區 -->
+    <div class="map-panel" id="mapPanel">
+      <div class="map-toolbar">
+        <div class="map-active-label" id="activeRouteLabel">Google Maps 路線預覽：載入中...</div>
+        <div class="map-actions">
+          <a id="openGmapsRouteBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">
+            另開 Google Maps 完整路線
+          </a>
+        </div>
+      </div>
+      <iframe
+        id="gmapFrame"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        src="https://maps.google.com/maps?q=24.974602,121.271340&z=15&output=embed">
+      </iframe>
+      <div class="map-caption" id="mapCaption">
+        點選下方任一條路線旁的「在此顯示 Google 地圖」可切換整條路線串聯；點選各站牌卡片，則會直接開啟該站的 Google Maps 位置。
+      </div>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="footer-note">
+      提示：綠色站牌表示已校準經緯度並可串聯路線；藍色站牌尚未填入經緯度，點擊會以站名搜尋公車站牌位置。
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const resultsEl = document.getElementById("results");
+      const statsEl = document.getElementById("coordStats");
+      const activeRouteLabelEl = document.getElementById("activeRouteLabel");
+      const mapCaptionEl = document.getElementById("mapCaption");
+      const openGmapsRouteBtn = document.getElementById("openGmapsRouteBtn");
+      const gmapFrame = document.getElementById("gmapFrame");
+
+      function makeStop(name, coords, road, query) {
+        return {
+          name: name || "",
+          coords: coords || "",
+          road: road || "",
+          query: query || ""
+        };
+      }
+
+      const SCHOOL_COORDS = "24.97460214158893, 121.27133961781232";
+
+      const ROUTES = [
+        // 上學（5條）
+        {
+          period: "上學",
+          name: "龍潭線",
+          station: "龍潭站",
+          phone: "4792708",
+          depart: "06:10",
+          note: "介壽路 > 豐德路 > 中山路 > 建國路 > 廣福路 > 永豐路",
+          stops: [
+            makeStop("龍潭804", "24.87475063986288, 121.23608541726291", "介壽路"),
+            makeStop("聯合社區", "24.873169033970022, 121.23062581488902", "介壽路"),
+            makeStop("黃泥塘", "24.871625633909577, 121.22558332979914", "介壽路"),
+            makeStop("第二市場", "24.864800417968574, 121.21687251298818", "龍潭市區／中正路一帶"),
+            makeStop("佳佳商場", "24.861594088220567, 121.21765841070757", "龍潭市區一帶"),
+            makeStop("龍潭國中", "24.85624865920726, 121.21756571283633", "龍潭市區／學區一帶"),
+            makeStop("上華", "24.85294818317739, 121.22307442093721", "龍潭南側一帶"),
+            makeStop("客家文化館", "24.845562986075958, 121.23465109854902", "中正路三林段一帶"),
+            makeStop("三林", "24.844449875665166, 121.23618009843506", "中正路三林段一帶"),
+            makeStop("走十一分路", "24.84183183568725, 121.24062849177844", "十一分路"),
+            makeStop("石管局", "24.83667152058164, 121.24078707166474", "佳安／石管局一帶"),
+            makeStop("配銷所", "24.86939553772631, 121.25842183073175", "員樹林／龍潭往八德方向"),
+            makeStop("忠勇二村", "24.88124510112326, 121.26544991174626", "介壽路員樹林段"),
+            makeStop("員樹林", "24.88421741027526, 121.26822470476772", "介壽路員樹林段"),
+            makeStop("齋明寺", "24.886123060159424, 121.2700935094884", "介壽路／齋明街口一帶"),
+            makeStop("仁和國中", "24.893858532667792, 121.275938619667", "介壽路仁和段"),
+            makeStop("埔頂", "24.897720621334887, 121.2786386583247", "介壽路埔頂段"),
+            makeStop("崎頂", "24.898981194099118, 121.28450533006065", "介壽路崎頂段"),
+            makeStop("太武", "24.902308846410246, 121.28415839616129", "介壽路太武段"),
+            makeStop("長興", "24.90600748408929, 121.285463215609", "介壽路長興段"),
+            makeStop("溫德爾幼稚園", "24.908349375601283, 121.28702802140243", "介壽路八德段"),
+            makeStop("大成社區", "24.911140919448723, 121.28859185808265", "介壽路大成段"),
+            makeStop("凱薩社區", "24.923376011778043, 121.29567625218043", "介壽路／建德路一帶"),
+            makeStop("墨爾本社區", "24.925522798573216, 121.2911595694168", "介壽路八德段"),
+            makeStop("遠雄艾菲爾", "24.925172670579645, 121.2870755872635", "介壽路八德段"),
+            makeStop("八德區公所", "24.929521190550076, 121.2845771382499", "介壽路／莊敬路口一帶"),
+            makeStop("八德教養院", "24.93159812599926, 121.28510150960089", "介壽路"),
+            makeStop("崙子路口", "24.9331809175881, 121.28653834320251", "介壽路／崙子路口"),
+            makeStop("崙子", "24.934667742278776, 121.28756943706357", "介壽路"),
+            makeStop("大庄", "24.940541916881735, 121.28807149383533", "介壽路大庄段"),
+            makeStop("大千社區", "24.944869220507695, 121.28828168977691", "介壽路大庄段"),
+            makeStop("藝墅天地", "24.94834502738032, 121.28962176247258", "介壽路大湳段"),
+            makeStop("大湳市場", "24.958696446681333, 121.29803663977343", "介壽路／大湳市場"),
+            makeStop("景雲新村", "24.959464477358043, 121.29486153832602", "介壽路／廣福路口一帶"),
+            makeStop("廣福路口", "", "廣福路"),
+            makeStop("永豐高中", SCHOOL_COORDS, "永豐路")
+          ]
+        },
+        {
+          period: "上學",
+          name: "平鎮線",
+          station: "中公站",
+          phone: "4220162",
+          depart: "06:20",
+          note: "",
+          stops: [
+            makeStop("健行科大(龍岡路7-11旁站牌)", "24.947115122212804, 121.22793410334539", "龍岡路"),
+            makeStop("北興加油站", "24.93916917401382, 121.22342123308644", "龍岡路／北興一帶"),
+            makeStop("正義路口", "24.930616460342055, 121.22646776144282", "龍岡路／正義路口"),
+            makeStop("獅子林", "24.929280912804437, 121.22708499960599", "龍岡路"),
+            makeStop("東勢國小", "24.91158291805418, 121.23182639958745", "中興路／東勢一帶"),
+            makeStop("東安國中", "24.916285008761864, 121.24971768183175", "平東路／東安一帶"),
+            makeStop("關路缺(平等路)", "24.919149594590575, 121.25306970355005", "平等路"),
+            makeStop("龍岡圓環", "24.92563039435868, 121.24454788224163", "龍岡圓環"),
+            makeStop("龍東路", "24.927798387221895, 121.24896860024141", "龍東路"),
+            makeStop("忠貞", "24.930147893475745, 121.25379619038789", "龍東路／忠貞"),
+            makeStop("龍文街口", "24.93621825008211, 121.25606965214526", "龍東路／龍文街口"),
+            makeStop("富台", "24.937736291827576, 121.25373816066052", "龍東路／富台"),
+            makeStop("仁美", "24.942529856060464, 121.25007462562785", "龍東路／仁美"),
+            makeStop("金車公司", "24.948182462424725, 121.25711138698169", "龍東路／後興路一帶"),
+            makeStop("活動中心", "24.950513739867876, 121.25696807746046", "後興路／中山東路一帶"),
+            makeStop("新北華美路口", "24.956556233882413, 121.26090006851612", "中山東路／華美一路口"),
+            makeStop("幸福新村", "24.95568681398337, 121.26351634094367", "中山東路／幸福新村"),
+            makeStop("永豐高中", SCHOOL_COORDS, "永豐路")
+          ]
+        },
+        {
+          period: "上學",
+          name: "中正大有線",
+          station: "三峽站",
+          phone: "3679300",
+          depart: "06:35",
+          note: "民光東路 → 大有 → 大興 → 經國 → 莊敬 → 中正 → 大興西路 → 文中 → 龍壽",
+          stops: [
+            makeStop("大業國小", "25.006805562832394, 121.31630317526175", "民光東路／大有路一帶"),
+            makeStop("大有/寶山街口", "25.012719450736643, 121.31862935289521", "大有路"),
+            makeStop("公園都市", "25.01569128789341, 121.31695129069529", "大有路"),
+            makeStop("會稽國中", "25.016119391470806, 121.31347332115921", "大有路／大興路一帶"),
+            makeStop("大興大業路口", "25.015934457932623, 121.31192662311645", "大興路"),
+            makeStop("敏盛醫院", "25.01622312774316, 121.30593106899953", "經國路"),
+            makeStop("尊爵飯店", "25.024164726237395, 121.29680828187631", "莊敬路"),
+            makeStop("莊敬路口", "25.022293345440712, 121.29541383774831", "莊敬路"),
+            makeStop("同德11街口", "25.020819136410328, 121.29614586856268", "中正路／同德十一街"),
+            makeStop("中正中寧街口", "25.019434253449546, 121.29683208135233", "中正路"),
+            makeStop("中正藝文中心", "25.014490710004445, 121.2991084002549", "中正路"),
+            makeStop("城市大亨中埔", "25.01201941846267, 121.2992386987273", "大興西路"),
+            makeStop("寶慶路口", "25.009759282978436, 121.29552251424839", "大興西路"),
+            makeStop("大興永安路口", "25.008137939150785, 121.29351208528635", "大興西路"),
+            makeStop("波特曼花園", "24.99313632077261, 121.27480009404684", "文中路"),
+            makeStop("龍安國小", "24.992734469275597, 121.27283523759012", "文中路／龍壽街一帶"),
+            makeStop("龍安國小二 2", "24.992432891992205, 121.27157700165088", "龍壽街"),
+            makeStop("龍壽街273巷", "24.98899330195732, 121.2673194488148", "龍壽街"),
+            makeStop("昌裕", "24.988756038655563, 121.26721878466132", "龍壽街"),
+            makeStop("鶴年", "24.98622636671855, 121.26784260318153", "龍壽街"),
+            makeStop("金兆興", "24.983757983160462, 121.26803594986364", "龍壽街"),
+            makeStop("永豐高中", SCHOOL_COORDS, "永豐路")
+          ]
+        },
+        {
+          period: "上學",
+          name: "大湳線",
+          station: "桃公站",
+          phone: "3618365",
+          depart: "06:35",
+          note: "介壽路 - 廣福 - 永豐路",
+          stops: [
+            makeStop("桃鶯路口", "24.986138961841, 121.3175735071978", "介壽路／桃鶯路口"),
+            makeStop("聖保祿醫院", "24.985703002168915, 121.31378317046335", "介壽路"),
+            makeStop("建國路口", "24.985511201617204, 121.31223572941971", "介壽路／建國路口"),
+            makeStop("介壽保羅街口", "24.983537643631717, 121.30936047141127", "介壽路"),
+            makeStop("桃園監理站", "24.9787715508051, 121.30394340026645", "介壽路"),
+            makeStop("利台公司", "24.976842245254613, 121.30281122244197", "介壽路"),
+            makeStop("力行街口", "24.975907963934215, 121.30237804983145", "介壽路"),
+            makeStop("無線電台", "24.972073159483138, 121.30180683822962", "介壽路"),
+            makeStop("小大湳", "24.97044717644815, 121.30147880122071", "介壽路"),
+            makeStop("東培公司", "24.969266969169357, 121.29932506747213", "介壽路"),
+            makeStop("介壽大智路口", "24.964649594598374, 121.30029559600383", "介壽路／大智路口"),
+            makeStop("陸光四村", "24.962428166475682, 121.29993305419517", "介壽路"),
+            makeStop("大湳", "24.959076711490603, 121.29931951668586", "介壽路"),
+            makeStop("大湳市場", "24.958989941403118, 121.29791721371839", "介壽路／大湳市場"),
+            makeStop("景雲新村", "24.95968799132066, 121.29471998910086", "介壽路／廣福路口"),
+            makeStop("廣福路口", "24.959678511310475, 121.29189668032977", "廣福路"),
+            makeStop("永豐高中", SCHOOL_COORDS, "永豐路")
+          ]
+        },
+        {
+          period: "上學",
+          name: "八德線",
+          station: "桃公站",
+          phone: "3618365",
+          depart: "06:40",
+          note: "興豐路 > 介壽路 > 廣福路 > 永豐路",
+          stops: [
+            makeStop("八德區公所", "24.929146537733665, 121.28521723180249", "興豐路／介壽路一帶"),
+            makeStop("八德國中", "24.929301516066563, 121.2872856162008", "興豐路"),
+            makeStop("興豐友聯街口", "24.929950833391384, 121.29055035763982", "興豐路"),
+            makeStop("更寮腳", "24.93119038330882, 121.29687336755471", "興豐路"),
+            makeStop("瑞發花園", "24.9341110471335, 121.29758476508081", "興豐路"),
+            makeStop("瑞豐國小", "24.936686686492067, 121.29752194762345", "興豐路"),
+            makeStop("欣桃社區", "24.94026659237649, 121.29763295837881", "興豐路"),
+            makeStop("梅花社區", "24.94441777876468, 121.29752998117256", "興豐路"),
+            makeStop("麻園", "24.947707883583934, 121.29765269547107", "興豐路"),
+            makeStop("鴻昌社區", "24.94975069665343, 121.29802820473284", "興豐路"),
+            makeStop("瑞祥社區", "24.952279846815003, 121.29843590050318", "興豐路"),
+            makeStop("大湳市場", "24.95889290928147, 121.2979363128138", "介壽路／大湳市場"),
+            makeStop("景雲新村", "24.95968799132066, 121.29471998910086", "介壽路／廣福路口"),
+            makeStop("廣福路口", "24.959678511310475, 121.29189668032977", "廣福路"),
+            makeStop("永豐高中", SCHOOL_COORDS, "永豐路")
+          ]
+        },
+
+        // 放學（7條）
+        {
+          period: "放學",
+          name: "龍潭線",
+          station: "龍潭站",
+          phone: "4792708",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "廣福路口", "景雲新村", "大湳市場", "藝墅天地", "大千社區",
+            "大庄", "崙子", "崙子路口", "八德教養院", "八德區公所", "遠雄艾菲爾",
+            "墨爾本社區", "凱撒社區", "大成社區", "溫德爾幼稚園", "長興", "崎頂",
+            "埔頂", "仁和國中", "齋明寺", "員樹林", "忠勇二村", "配銷所", "石管局",
+            "走十一份路", "三林", "客家文化館", "上華", "龍潭國中", "佳佳商場",
+            "第一市場", "黃泥塘", "聯合社區", "804"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "平鎮線",
+          station: "中公站",
+          phone: "4220162",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "幸福新村", "新北華美路口", "活動中心", "金車公司", "仁美",
+            "富台", "龍文街口", "忠貞", "龍東路", "龍岡圓環", "關路缺", "東安國中",
+            "東勢國小", "獅子林", "正義街口", "北興加油站", "健行科大"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "龜山線",
+          station: "桃公站",
+          phone: "3618365",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "景雲新村", "大湳市場", "大湳", "陸光四村", "介壽大智路口",
+            "東培公司", "無線電台", "力行街口", "利台公司", "廣豐公司", "桃園監理站",
+            "陽明公園", "介壽建國路口"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "八德線",
+          station: "桃公站",
+          phone: "4222047",
+          depart: "17:00",
+          note: "興豐路沿途",
+          stops: [
+            "永豐高中", "廣福路口", "景雲新村", "大湳市場", "大湳辦事處", "大潤發",
+            "瑞祥社區", "鴻昌社區", "麻園", "梅花社區", "欣桃社區", "瑞發家園",
+            "瑞豐國小", "僑愛新村", "更寮腳", "興豐友聯街口", "八德國中", "八德區公所"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "大湳線",
+          station: "桃公站",
+          phone: "3618365",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "景雲新村", "大湳市場", "大湳", "陸光四村", "介壽大智路口",
+            "東培公司", "無線電台", "力行街口", "利台公司", "廣豐公司", "桃園監理站",
+            "陽明公園", "介壽建國路口", "統領百貨"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "桃園線",
+          station: "中公站",
+          phone: "4220162",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "龍壽街口", "龍祥里", "高城社區", "中華路", "明光社區",
+            "茄苳溪", "宏太社區", "武陵高中", "新名人賞", "中山國小", "中平路口",
+            "法院", "土地改革處", "縣政府", "育樂街口", "三民路口", "南華街口",
+            "中山路", "景福宮", "關帝廟", "成功路", "郵局", "桃園車站"
+          ].map(function (s) { return makeStop(s); })
+        },
+        {
+          period: "放學",
+          name: "中壢線",
+          station: "中公站",
+          phone: "4220162",
+          depart: "17:00",
+          note: "",
+          stops: [
+            "永豐高中", "署立桃園醫院", "漁管處", "內壢", "日月光公司", "自立新村",
+            "內壢國中", "中壢工業區", "南園路口", "中原", "台灣拉鍊", "中壢簡易庭",
+            "天晟醫院", "新街", "監理站", "中美路", "新生路", "第一市場",
+            "第一銀行", "中壢車站"
+          ].map(function (s) { return makeStop(s); })
+        }
+      ];
+
+      function parseCoords(coordsStr) {
+        if (!coordsStr || !coordsStr.trim()) return null;
+        const parts = coordsStr.split(",").map(function (v) { return parseFloat(v.trim()); });
+        if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+        return parts[0] + "," + parts[1];
+      }
+
+      function buildSingleStopUrl(stopObj) {
+        const pt = parseCoords(stopObj.coords);
+        if (pt) {
+          return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(pt);
+        }
+        if (stopObj.query && stopObj.query.trim()) {
+          return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(stopObj.query.trim());
+        }
+        const base = stopObj.name.replace(/\(.*?\)/g, "").trim();
+        return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(base + " 公車站牌 桃園");
+      }
+
+      function buildRouteGmapsUrl(route) {
+        const validPoints = route.stops
+          .map(function (s) { return { name: s.name, pt: parseCoords(s.coords) }; })
+          .filter(function (x) { return x.pt !== null; });
+
+        if (!validPoints.length) {
+          return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("永豐高中 桃園");
+        }
+        const origin = validPoints[0].pt;
+        const destination = validPoints[validPoints.length - 1].pt;
+        const waypoints = validPoints
+          .slice(1, -1)
+          .filter(function (_, idx) { return idx % 3 === 0; })
+          .slice(0, 8)
+          .map(function (x) { return x.pt; })
+          .join("|");
+
+        let url = "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origin) +
+                  "&destination=" + encodeURIComponent(destination) + "&travelmode=driving";
+        if (waypoints) {
+          url += "&waypoints=" + encodeURIComponent(waypoints);
+        }
+        return url;
+      }
+
+      function buildRouteEmbedUrl(route) {
+        const validPoints = route.stops
+          .map(function (s) { return { name: s.name, pt: parseCoords(s.coords) }; })
+          .filter(function (x) { return x.pt !== null; });
+
+        if (!validPoints.length) {
+          return "https://maps.google.com/maps?q=24.974602,121.271340&z=14&output=embed";
+        }
+        if (validPoints.length === 1) {
+          return "https://maps.google.com/maps?q=" + encodeURIComponent(validPoints[0].pt) + "&z=15&output=embed";
+        }
+        const saddr = validPoints[0].pt;
+        // 串聯中間轉折站點（用 +to: 串接，讓 Google 內嵌地圖畫出完整路線）
+        const middleStops = validPoints
+          .slice(1, -1)
+          .filter(function (_, idx) { return idx % 2 === 0; })
+          .slice(0, 7)
+          .map(function (x) { return x.pt; });
+        const daddrChain = middleStops.concat([validPoints[validPoints.length - 1].pt]).join("+to:");
+
+        return "https://maps.google.com/maps?saddr=" + encodeURIComponent(saddr) +
+               "&daddr=" + daddrChain + "&output=embed";
+      }
+
+      function showRouteOnMap(route, shouldScroll) {
+        const validPoints = route.stops
+          .map(function (s) { return { name: s.name, pt: parseCoords(s.coords) }; })
+          .filter(function (x) { return x.pt !== null; });
+
+        activeRouteLabelEl.textContent = "Google Maps 路線預覽：" + route.period + "｜" + route.name + "（發車 " + route.depart + "）";
+        openGmapsRouteBtn.href = buildRouteGmapsUrl(route);
+        gmapFrame.src = buildRouteEmbedUrl(route);
+
+        if (!validPoints.length) {
+          mapCaptionEl.textContent = "此路線目前尚未填入經緯度座標，地圖暫顯示永豐高中位置；請點選下方各站牌查看位置。";
+        } else {
+          mapCaptionEl.textContent = "已使用 Google Maps 串聯 " + validPoints.length + " 個已定位站點（起點：" + validPoints[0].name + " → 終點：" + validPoints[validPoints.length - 1].name + "）。";
+        }
+
+        if (shouldScroll) {
+          document.getElementById("mapPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+
+      const periodFilter = document.getElementById("periodFilter");
+      const routeFilter = document.getElementById("routeFilter");
+      const keywordInput = document.getElementById("keywordInput");
+
+      function updateStats() {
+        let totalStops = 0;
+        let locatedStops = 0;
+        ROUTES.forEach(function (r) {
+          r.stops.forEach(function (s) {
+            totalStops += 1;
+            if (parseCoords(s.coords)) locatedStops += 1;
+          });
+        });
+        statsEl.innerHTML = "<strong>已校準站點：</strong>" + locatedStops + " / " + totalStops + " 站";
+      }
+
+      function populateRouteOptions() {
+        const p = periodFilter.value;
+        const names = Array.from(new Set(
+          ROUTES.filter(function (r) { return p === "ALL" || r.period === p; })
+                .map(function (r) { return r.name; })
+        ));
+        const current = routeFilter.value;
+        routeFilter.innerHTML = '<option value="ALL">全部路線</option>' +
+          names.map(function (n) { return '<option value="' + n + '">' + n + '</option>'; }).join("");
+        routeFilter.value = names.indexOf(current) !== -1 ? current : "ALL";
+      }
+
+      function render() {
+        const p = periodFilter.value;
+        const rName = routeFilter.value;
+        const kw = keywordInput.value.trim().toLowerCase();
+
+        const matchedRoutes = ROUTES.filter(function (r) {
+          const matchPeriod = p === "ALL" || r.period === p;
+          const matchRoute = rName === "ALL" || r.name === rName;
+          const matchKw = !kw ||
+            r.name.toLowerCase().indexOf(kw) !== -1 ||
+            r.period.toLowerCase().indexOf(kw) !== -1 ||
+            (r.note && r.note.toLowerCase().indexOf(kw) !== -1) ||
+            r.stops.some(function (s) {
+              return s.name.toLowerCase().indexOf(kw) !== -1 ||
+                     (s.road && s.road.toLowerCase().indexOf(kw) !== -1);
+            });
+          return matchPeriod && matchRoute && matchKw;
+        });
+
+        const firstWithCoords = matchedRoutes.find(function (r) {
+          return r.stops.some(function (s) { return parseCoords(s.coords) !== null; });
+        }) || matchedRoutes[0];
+        if (firstWithCoords) {
+          showRouteOnMap(firstWithCoords, false);
+        }
+
+        const blocks = matchedRoutes.map(function (r, rIdx) {
+          const filteredStops = r.stops
+            .map(function (stopObj, idx) { return { stopObj: stopObj, seq: idx + 1, total: r.stops.length }; })
+            .filter(function (item) {
+              return !kw ||
+                item.stopObj.name.toLowerCase().indexOf(kw) !== -1 ||
+                (item.stopObj.road && item.stopObj.road.toLowerCase().indexOf(kw) !== -1) ||
+                r.name.toLowerCase().indexOf(kw) !== -1;
+            });
+
+          if (!filteredStops.length) return "";
+
+          const stopCards = filteredStops.map(function (item) {
+            const hasCoords = Boolean(parseCoords(item.stopObj.coords));
+            const mapsUrl = buildSingleStopUrl(item.stopObj);
+            let roleLabel = "停靠站";
+            if (item.seq === 1) roleLabel = "起點";
+            else if (item.seq === item.total) roleLabel = "終點";
+
+            return (
+              '<a class="stop-link ' + (hasCoords ? "has-coords" : "") + '" href="' + mapsUrl + '" target="_blank" rel="noopener noreferrer" title="在 Google Maps 查看 ' + item.stopObj.name + '">' +
+                '<span class="bus-sign" aria-hidden="true">' +
+                  '<span class="bus-sign-top">站牌</span>' +
+                  '<span class="bus-sign-num">' + item.seq + '</span>' +
+                '</span>' +
+                '<span class="stop-content">' +
+                  '<span class="stop-top">' +
+                    '<span class="stop-name">' + item.stopObj.name + '</span>' +
+                    '<span class="role-tag">' + roleLabel + '</span>' +
+                  '</span>' +
+                  (item.stopObj.road ? '<span class="road-tag">路段：' + item.stopObj.road + '</span>' : '') +
+                '</span>' +
+              '</a>'
+            );
+          }).join("");
+
+          const routeObjIndex = ROUTES.indexOf(r);
+
+          return (
+            '<section class="route-group" data-route-block="' + rIdx + '">' +
+              '<div class="route-header">' +
+                '<div class="route-title-wrap">' +
+                  '<span class="route-title">' + r.period + '｜' + r.name + '（發車 ' + r.depart + '）</span>' +
+                  '<button type="button" class="btn btn-outline js-view-route" data-ridx="' + routeObjIndex + '">在此顯示 Google 地圖</button>' +
+                  '<a class="btn btn-primary" href="' + buildRouteGmapsUrl(r) + '" target="_blank" rel="noopener noreferrer">另開 Google 路線</a>' +
+                '</div>' +
+                '<div class="route-meta">負責站：' + r.station + '（' + r.phone + '）' + (r.note ? '｜' + r.note : '') + '</div>' +
+              '</div>' +
+              '<div class="stops-grid">' + stopCards + '</div>' +
+            '</section>'
+          );
+        }).filter(Boolean);
+
+        resultsEl.innerHTML = blocks.length
+          ? blocks.join("")
+          : '<div class="empty">找不到符合條件的路線或站牌，請試試其他關鍵字。</div>';
+
+        document.querySelectorAll(".js-view-route").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const idx = parseInt(btn.getAttribute("data-ridx"), 10);
+            if (!isNaN(idx) && ROUTES[idx]) {
+              showRouteOnMap(ROUTES[idx], true);
+            }
+          });
+        });
+      }
+
+      periodFilter.addEventListener("change", function () {
+        populateRouteOptions();
+        render();
+      });
+      routeFilter.addEventListener("change", render);
+      keywordInput.addEventListener("input", render);
+
+      updateStats();
+      populateRouteOptions();
+      render();
+    })();
+  </script>
+</body>
+</html>
